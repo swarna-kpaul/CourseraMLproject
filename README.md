@@ -1,2 +1,0 @@
-# CourseraMLproject
-Swarna Kamal Paul
