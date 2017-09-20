@@ -1,0 +1,132 @@
+---
+title: "Predicting Excercise Pattern"
+author: "Swarna Kamal Paul"
+date: "9/18/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Abstract
+One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, the goal is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants and predict the manner in which they did the exercise. Data is being collected Using devices such as Jawbone Up, Nike FuelBand, and Fitbit. Using these devices it is now possible to collect a large amount of data about personal activity relatively inexpensively. The predictable variable is created by asking the performers to perform barbell lifts correctly and incorrectly in 5 different ways. 
+
+## Getting and processing data
+The following section downloads and reads the training and test dataset. Therebay some transformations are applied to make it usable for downstream processes.
+There are 100 columns which have more than 95% missing values. Those are removed from the dataset.
+The 1st 5 columns are removed as they are related to user id and timestamp and does not contribute anything in creating the predictor model.
+Thereafter ran principal component analysis to reduce the dimension even further.
+The cumulative variance plot shows that first 38 principal components nearly explain 99% variance in the data. Thus the final dataset has only 38 predictors.
+```{r,message=FALSE}
+
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv","training.csv")
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv","test.csv")
+
+training <- read.csv("training.csv" , na.strings=c("NA"," ","#DIV/0!") )
+test <- read.csv("test.csv")
+dim(training)
+#getting missing values 
+NA_percent_cols<-sapply(1:ncol(training),function (i) {sum(is.na(training[,i]))/19622})
+NA_percent_cols<- data.frame(NA_percent=NA_percent_cols,colpos=1:160)
+# getting columns with more than 95% missing values
+NA_percent_cols <- subset(NA_percent_cols,NA_percent>0.95)
+# removing columns with missing values
+training <- training[,-NA_percent_cols$colpos]
+training<-training[complete.cases(training),]
+dim(training)
+# cleaning test data
+test<- test[,-NA_percent_cols$colpos]
+
+# removing 1st 5 columns
+training<- training[,-(1:5)]
+test<- test[,-(1:5)]
+# seperating the target variable
+train_target<- training$classe
+training<- training[,-55]
+
+training$new_window<- as.numeric(factor(training$new_window))
+test$new_window<- as.numeric(factor(test$new_window))
+
+# applying principal component analysis
+
+pr_comp <- prcomp(training, scale = T)
+
+# Getting cumulative relative variance of components
+comp_var<- (pr_comp$sdev)^2
+cum_comp_var <- cumsum(comp_var/sum(comp_var))
+
+
+plot(cum_comp_var, xlab = "Principal Components",
+              ylab = "Cumulative Proportion of Variance Explained",
+              type = "b",
+              main="Cumulative variance explained vs principal component plot")
+# first 38 principal components are selected as predictor in the training and test data
+training <-  data.frame(pr_comp$x[,1:38],classe=train_target)
+
+# transforming test data to PCA
+test <- predict(pr_comp, newdata = test)
+# selecting 1st 38 components
+test<- test[,1:38]
+```
+
+For cross validation the training set is divided into 2 subsets. 
+One is training subset which contains 75% data of the training set and another is the test subset which contains rest of the 25% data of the training set.
+
+```{r, message=FALSE}
+# creating training and test subsets from training data
+library(caret)
+training_subset_index<-createDataPartition(training$classe, p=0.75, list=FALSE)
+training_subset<- training[training_subset_index,]
+test_subset<- training[-training_subset_index,]
+
+```
+
+## Training the model for prediction
+The following section trains two models using two very popular methods called as support vector machine and Random forest using the training subset data. 
+Thereafter test subset is used to cross validate the model.
+
+
+```{r, message=FALSE}
+library(randomForest)
+library(e1071)
+set.seed(1000)
+# generating support vector machine model from training subset
+sv_model<-svm(classe~.,data=training_subset,scale=T)
+
+# generating random forest model from training subset
+rf_model <- randomForest(classe ~ ., data=training_subset)
+
+sv_model
+rf_model
+
+# Predicting classes in test subset using svm model
+sv_predict_classe <- predict(sv_model, test_subset[,-39])
+
+# Predicting classes in test subset using Random forest model
+rf_predict_classe <- predict(rf_model, test_subset[,-39])
+
+# Generating confusion matrix for both the model predictions
+confusionMatrix(sv_predict_classe, test_subset$classe)
+confusionMatrix(rf_predict_classe, test_subset$classe)
+```
+
+
+The SVM model gave out of sample accuracy on the test subset as 96.08% (out of sample error = 3.92%).
+Whereas the random forest model gave out of sample accuracy on the test subset as 98.14% (out of sample error = 1.86%)
+Thus we are choosing the random forest model for predicting the classes in the final test data.
+
+
+## Final Prediction
+
+The following section predicts the classes in the Final test dataset and writes the output in a csv file
+
+```{r}
+# Predicting classes in final test data
+final_predict_classe <- predict(rf_model,test)
+final_predict_classe
+
+# writing prediction results in csv
+write.csv(final_predict_classe,"final_test_prediction.csv")
+
+```
