@@ -19,7 +19,7 @@ The 1st 5 columns are removed as they are related to user id and timestamp and d
 Thereafter ran principal component analysis to reduce the dimension even further.
 The cumulative variance plot shows that first 38 principal components nearly explain 99% variance in the data. Thus the final dataset has only 38 predictors.
 ```{r,message=FALSE}
-
+set.seed(1000)
 download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv","training.csv")
 download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv","test.csv")
 
@@ -76,6 +76,7 @@ One is training subset which contains 75% data of the training set and another i
 ```{r, message=FALSE}
 # creating training and test subsets from training data
 library(caret)
+set.seed(1000)
 training_subset_index<-createDataPartition(training$classe, p=0.75, list=FALSE)
 training_subset<- training[training_subset_index,]
 test_subset<- training[-training_subset_index,]
@@ -112,8 +113,8 @@ confusionMatrix(rf_predict_classe, test_subset$classe)
 ```
 
 
-The SVM model gave out of sample accuracy on the test subset as 96.08% (out of sample error = 3.92%).
-Whereas the random forest model gave out of sample accuracy on the test subset as 98.14% (out of sample error = 1.86%)
+The SVM model gave out of sample accuracy on the test subset as 96.13% (out of sample error = 3.87%).
+Whereas the random forest model gave out of sample accuracy on the test subset as 98.51% (out of sample error = 1.49%)
 Thus we are choosing the random forest model for predicting the classes in the final test data.
 
 
